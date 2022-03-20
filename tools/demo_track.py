@@ -4,6 +4,8 @@ import os.path as osp
 import time
 import cv2
 import torch
+import numpy as np
+import pandas as pd
 
 from loguru import logger
 
@@ -249,12 +251,16 @@ def imageflow_demo(predictor, vis_folder, current_time, args):
     vid_writer = cv2.VideoWriter(
         save_path, cv2.VideoWriter_fourcc(*"mp4v"), fps, (int(width), int(height))
     )
+    
+    # Pandas df to save.
+    my_df = pd.DataFrame( columns=["frame_id", "track_id", "x", "y", "w", "h", "score"] )
+    
     tracker = BYTETracker(args, frame_rate=30)
     timer = Timer()
     frame_id = 0
     results = []
     while True:
-        if frame_id % 20 == 0:
+        if frame_id % 50 == 0:
             logger.info('Processing frame {} ({:.2f} fps)'.format(frame_id, 1. / max(1e-5, timer.average_time)))
         ret_val, frame = cap.read()
         if ret_val:
@@ -275,6 +281,7 @@ def imageflow_demo(predictor, vis_folder, current_time, args):
                         results.append(
                             f"{frame_id},{tid},{tlwh[0]:.2f},{tlwh[1]:.2f},{tlwh[2]:.2f},{tlwh[3]:.2f},{t.score:.2f},-1,-1,-1\n"
                         )
+                        my_df.loc[len(my_df.index)] = [frame_id, tid, tlwh[0], tlwh[1], tlwh[2], tlwh[3], t.score]
                 timer.toc()
                 online_im = plot_tracking(
                     img_info['raw_img'], online_tlwhs, online_ids, frame_id=frame_id + 1, fps=1. / timer.average_time
@@ -292,6 +299,7 @@ def imageflow_demo(predictor, vis_folder, current_time, args):
         frame_id += 1
 
     if args.save_result:
+        my_df.to_csv(f"{save_folder}/{args.path.split('/')[-1].split('.')[0]}.csv", index=False)
         res_file = osp.join(vis_folder, f"{timestamp}.txt")
         with open(res_file, 'w') as f:
             f.writelines(results)
