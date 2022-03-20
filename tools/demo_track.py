@@ -16,8 +16,57 @@ from yolox.utils.visualize import plot_tracking
 from yolox.tracker.byte_tracker import BYTETracker
 from yolox.tracking_utils.timer import Timer
 
+import tools.demographics_model as demographics_model
+import tools.model_utils as model_utils
 
 IMAGE_EXT = [".jpg", ".jpeg", ".webp", ".bmp", ".png"]
+
+def run_predictions():
+    csv_file = "final_output/bb_df.csv"
+    video_file = args.path
+    # Reading the bb_df csv
+    df = pd.read_csv(csv_file)
+    dem_model = demographics_model.load_model()
+    # Final output csv to save 
+    final_df = pd.DataFrame( columns=["frame_id", "track_id", "x", "y", "w", "h", "age_actual", "gender"] )
+
+    vidcap = cv2.VideoCapture(video_file)
+    # success,image = vidcap.read()
+    success=True
+    count = 0
+    while success:
+        if count%40==0:
+            logger.info(f"Processing frame : {count}")
+        success,image = vidcap.read()
+        if not success:
+            break
+        # get rows with frame_id=0 from my_df
+        df_temp = df[df['frame_id'] == count]
+        for i in range(len(df_temp)) :
+            xmin = int(df_temp.iloc[i,2])-4
+            ymin = int(df_temp.iloc[i,3])-4
+            xmax = xmin + int(df_temp.iloc[i,4])+4
+            ymax = ymin + int(df_temp.iloc[i,5])+4
+
+            if(xmin<0):
+                xmin=0
+            if(ymin<0):
+                ymin=0
+            
+            if(xmax>image.shape[1]):
+                xmax=image.shape[1]
+            if(ymax>image.shape[0]):
+                ymax=image.shape[0]
+
+            cropped_img = image[ymin:ymax, xmin:xmax, : ]
+
+            op = demographics_model.give_output(dem_model, cropped_img)
+
+            final_df.loc[len(final_df.index)] = [count, df_temp.iloc[i,1], xmin, ymin, xmax-xmin, ymax-ymin, op[0], op[1]]
+
+
+        count += 1
+    final_df.to_csv("final_output/predictions.csv", index=False)
 
 
 def make_parser():
@@ -299,7 +348,7 @@ def imageflow_demo(predictor, vis_folder, current_time, args):
         frame_id += 1
 
     if args.save_result:
-        my_df.to_csv(f"{save_folder}/{args.path.split('/')[-1].split('.')[0]}.csv", index=False)
+        my_df.to_csv("final_output/bb_df.csv", index=False)
         res_file = osp.join(vis_folder, f"{timestamp}.txt")
         with open(res_file, 'w') as f:
             f.writelines(results)
@@ -371,6 +420,7 @@ def main(exp, args):
         image_demo(predictor, vis_folder, current_time, args)
     elif args.demo == "video" or args.demo == "webcam":
         imageflow_demo(predictor, vis_folder, current_time, args)
+        run_predictions()
 
 
 if __name__ == "__main__":
