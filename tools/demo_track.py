@@ -21,6 +21,17 @@ import tools.model_utils as model_utils
 
 IMAGE_EXT = [".jpg", ".jpeg", ".webp", ".bmp", ".png"]
 
+def custom_image_editor(inp_img, idx, xmin, ymin, xmax, ymax, age_actual, gender):
+  color = ((37 * idx) % 255, (17 * idx) % 255, (29 * idx) % 255)
+  text_scale = 2
+  text_thickness = 2
+  line_thickness = 2
+  im = inp_img
+  cv2.rectangle(im, (xmin, ymin), (xmax, ymax), color=color, thickness=line_thickness)
+  cv2.putText(im, f"{gender} | {age_actual}",(xmin, ymax), cv2.FONT_HERSHEY_PLAIN, text_scale, (0, 0, 255),
+                    thickness=text_thickness)
+  return im
+
 def run_predictions_video():
     csv_file = "final_output/bb_df.csv"
     video_file = args.path
@@ -30,7 +41,16 @@ def run_predictions_video():
     # Final output csv to save 
     final_df = pd.DataFrame( columns=["frame_id", "track_id", "x", "y", "w", "h", "age_actual", "gender"] )
 
+
     vidcap = cv2.VideoCapture(video_file)
+    width = vidcap.get(cv2.CAP_PROP_FRAME_WIDTH)  # float
+    height = vidcap.get(cv2.CAP_PROP_FRAME_HEIGHT)  # float
+    fps = vidcap.get(cv2.CAP_PROP_FPS)
+    # Making the video writer
+    vid_writer = cv2.VideoWriter(
+        "final_output/output.mp4", cv2.VideoWriter_fourcc(*"mp4v"), fps, (int(width), int(height))
+    )
+    
     # success,image = vidcap.read()
     success=True
     count = 0
@@ -41,6 +61,7 @@ def run_predictions_video():
         if not success:
             break
         # get rows with frame_id=0 from my_df
+        modified_image = image
         df_temp = df[(df['frame_id']-1) == count]
         for i in range(len(df_temp)) :
             xmin = int(df_temp.iloc[i,2])-4
@@ -64,7 +85,9 @@ def run_predictions_video():
 
             final_df.loc[len(final_df.index)] = [count, df_temp.iloc[i,1], xmin, ymin, xmax-xmin, ymax-ymin, op[0], op[1]]
 
+            modified_image = custom_image_editor(modified_image, df_temp.iloc[i,1], xmin, ymin, xmax, ymax, op[0], op[1])
 
+        vid_writer.write(modified_image)
         count += 1
     final_df.to_csv("final_output/predictions.csv", index=False)
 def run_predictions_image():
@@ -88,6 +111,7 @@ def run_predictions_image():
         if count%40==0:
             logger.info(f"Processing frame : {count}")
         image = cv2.imread(files[i])
+        modified_image = image
         # get rows with frame_id=0 from my_df
         df_temp = df[(df['frame_id'] - 1) == count]
         
@@ -112,8 +136,10 @@ def run_predictions_image():
             op = demographics_model.give_output(dem_model, cropped_img)
 
             final_df.loc[len(final_df.index)] = [count, df_temp.iloc[i,1], xmin, ymin, xmax-xmin, ymax-ymin, op[0], op[1]]
-          
 
+            modified_image = custom_image_editor(modified_image, df_temp.iloc[i,1], xmin, ymin, xmax, ymax, op[0], op[1])
+        
+        cv2.imwrite(f"final_output/{count}.jpg", modified_image)
         count += 1
     final_df.to_csv("final_output/predictions.csv", index=False)
 
