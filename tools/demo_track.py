@@ -23,8 +23,8 @@ IMAGE_EXT = [".jpg", ".jpeg", ".webp", ".bmp", ".png"]
 
 def custom_image_editor(inp_img, idx, xmin, ymin, xmax, ymax, age_actual, gender, age_low, age_high):
   color = ((37 * idx) % 255, (17 * idx) % 255, (29 * idx) % 255)
-  text_scale = 2
-  text_thickness = 2
+  text_scale = 1.5
+  text_thickness = 1
   line_thickness = 2
   im = inp_img
   cv2.rectangle(im, (xmin, ymin), (xmax, ymax), color=color, thickness=line_thickness)
