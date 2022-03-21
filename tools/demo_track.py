@@ -21,7 +21,7 @@ import tools.model_utils as model_utils
 
 IMAGE_EXT = [".jpg", ".jpeg", ".webp", ".bmp", ".png"]
 
-def run_predictions():
+def run_predictions_video():
     csv_file = "final_output/bb_df.csv"
     video_file = args.path
     # Reading the bb_df csv
@@ -41,7 +41,7 @@ def run_predictions():
         if not success:
             break
         # get rows with frame_id=0 from my_df
-        df_temp = df[df['frame_id'] == count]
+        df_temp = df[(df['frame_id']-1) == count]
         for i in range(len(df_temp)) :
             xmin = int(df_temp.iloc[i,2])-4
             ymin = int(df_temp.iloc[i,3])-4
@@ -67,6 +67,55 @@ def run_predictions():
 
         count += 1
     final_df.to_csv("final_output/predictions.csv", index=False)
+def run_predictions_image():
+    csv_file = "final_output/bb_df.csv"
+    img_file = args.path
+    # Reading the bb_df csv
+    df = pd.read_csv(csv_file)
+    dem_model = demographics_model.load_model()
+    # Final output csv to save 
+    final_df = pd.DataFrame( columns=["frame_id", "track_id", "x", "y", "w", "h", "age_actual", "gender"] )
+    if osp.isdir(args.path):
+        files = get_image_list(args.path)
+    else:
+        files = [args.path]
+    files.sort()
+    #vidcap = cv2.VideoCapture(video_file)
+    # success,image = vidcap.read()
+    success=True
+    count = 0
+    for i in range(len(files)):
+        if count%40==0:
+            logger.info(f"Processing frame : {count}")
+        image = cv2.imread(files[i])
+        # get rows with frame_id=0 from my_df
+        df_temp = df[(df['frame_id'] - 1) == count]
+        
+        for i in range(len(df_temp)) :
+            xmin = int(df_temp.iloc[i,2])-4
+            ymin = int(df_temp.iloc[i,3])-4
+            xmax = xmin + int(df_temp.iloc[i,4])+4
+            ymax = ymin + int(df_temp.iloc[i,5])+4
+
+            if(xmin<0):
+                xmin=0
+            if(ymin<0):
+                ymin=0
+            
+            if(xmax>image.shape[1]):
+                xmax=image.shape[1]
+            if(ymax>image.shape[0]):
+                ymax=image.shape[0]
+
+            cropped_img = image[ymin:ymax, xmin:xmax, : ]
+
+            op = demographics_model.give_output(dem_model, cropped_img)
+
+            final_df.loc[len(final_df.index)] = [count, df_temp.iloc[i,1], xmin, ymin, xmax-xmin, ymax-ymin, op[0], op[1]]
+          
+
+        count += 1
+    final_df.to_csv("final_output/predictions.csv", index=False)
 
 
 def make_parser():
@@ -84,6 +133,7 @@ def make_parser():
     parser.add_argument("--camid", type=int, default=0, help="webcam demo camera id")
     parser.add_argument(
         "--save_result",
+        default=True,
         action="store_true",
         help="whether to save the inference result of image/video",
     )
@@ -92,7 +142,7 @@ def make_parser():
     parser.add_argument(
         "-f",
         "--exp_file",
-        default=None,
+        default='exps/example/mot/yolox_x_mix_det.py',
         type=str,
         help="pls input your expriment description file",
     )
@@ -110,14 +160,14 @@ def make_parser():
     parser.add_argument(
         "--fp16",
         dest="fp16",
-        default=False,
+        default=True,
         action="store_true",
         help="Adopting mix precision evaluating.",
     )
     parser.add_argument(
         "--fuse",
         dest="fuse",
-        default=False,
+        default=True,
         action="store_true",
         help="Fuse conv and bn for testing.",
     )
@@ -236,6 +286,8 @@ def image_demo(predictor, vis_folder, current_time, args):
     timer = Timer()
     results = []
 
+    my_df = pd.DataFrame( columns=["frame_id", "track_id", "x", "y", "w", "h", "score"] )
+
     for frame_id, img_path in enumerate(files, 1):
         outputs, img_info = predictor.inference(img_path, timer)
         if outputs[0] is not None:
@@ -255,6 +307,7 @@ def image_demo(predictor, vis_folder, current_time, args):
                     results.append(
                         f"{frame_id},{tid},{tlwh[0]:.2f},{tlwh[1]:.2f},{tlwh[2]:.2f},{tlwh[3]:.2f},{t.score:.2f},-1,-1,-1\n"
                     )
+                    my_df.loc[len(my_df.index)] = [frame_id, tid, tlwh[0], tlwh[1], tlwh[2], tlwh[3], t.score]
             timer.toc()
             online_im = plot_tracking(
                 img_info['raw_img'], online_tlwhs, online_ids, frame_id=frame_id, fps=1. / timer.average_time
@@ -278,6 +331,7 @@ def image_demo(predictor, vis_folder, current_time, args):
             break
 
     if args.save_result:
+        my_df.to_csv("final_output/bb_df.csv", index=False)
         res_file = osp.join(vis_folder, f"{timestamp}.txt")
         with open(res_file, 'w') as f:
             f.writelines(results)
@@ -418,9 +472,10 @@ def main(exp, args):
     current_time = time.localtime()
     if args.demo == "image":
         image_demo(predictor, vis_folder, current_time, args)
+        run_predictions_image()
     elif args.demo == "video" or args.demo == "webcam":
         imageflow_demo(predictor, vis_folder, current_time, args)
-        run_predictions()
+        run_predictions_video()
 
 
 if __name__ == "__main__":
