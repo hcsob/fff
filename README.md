@@ -19,22 +19,18 @@ pip3 install 'git+https://github.com/cocodataset/cocoapi.git#subdirectory=Python
 pip3 install --upgrade --no-cache-dir gdown
 pip3 install -r requirements.txt
 ```
- Downloading the pretrained models & storing them under `/pretrained`. Please note, if these commands do not work please download the files from the drive link provided here<TODO : PLEASE UPDATE THE LINKS HERE>
+ Downloading the pretrained models directory & storing them as `/pretrained`. Please note, if these commands do not work please download the zip file manually from the drive link provided [here](https://drive.google.com/file/d/18qPkmJIZ4fID5fA309uc8UA0HDMUjF4U/view?usp=sharing) and extract it as a directory `/pretrained`.
 ```
-cd pretrained
-gdown "1TBMa2JzJhhKt2lSF8rciUf3llk1XMRwD"
-unzip New_32CL_5LR_43Epoc.zip
-rm -rf New_32CL_5LR_43Epoc.zip
-!gdown --id "1P4mY0Yyd3PPTybgZkjMYhFri88nTmJX5"
-cd ..
+gdown --id "18qPkmJIZ4fID5fA309uc8UA0HDMUjF4U"
+unzip pretrained
+rm -rf pretrained.zip
 ```
 
 Finally your `/pretrained/` directory should look as follows
  ```
 pretrained
     ├── New_32CL_5LR_43Epoc
-    ├── bytetrack_x_mot17.pth.tar
-    └── .gitignore
+    └── bytetrack_x_mot17.pth.tar
  ```
 
 Finally run the setup:
