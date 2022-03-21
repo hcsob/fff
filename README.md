@@ -6,10 +6,8 @@
 
 #### Setup :
 
-Clone this repository:
-```
-git clone <TODO : enter git repo link here>
-```
+Before proceeding ensure that you are inside the `MP_BO_T10_CODE/` directory.
+
 Installing the dependencies:
 ```
 # Changing the working directory into the repository

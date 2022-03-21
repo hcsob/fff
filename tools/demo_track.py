@@ -21,14 +21,14 @@ import tools.model_utils as model_utils
 
 IMAGE_EXT = [".jpg", ".jpeg", ".webp", ".bmp", ".png"]
 
-def custom_image_editor(inp_img, idx, xmin, ymin, xmax, ymax, age_actual, gender):
+def custom_image_editor(inp_img, idx, xmin, ymin, xmax, ymax, age_actual, gender, age_low, age_high):
   color = ((37 * idx) % 255, (17 * idx) % 255, (29 * idx) % 255)
   text_scale = 2
   text_thickness = 2
   line_thickness = 2
   im = inp_img
   cv2.rectangle(im, (xmin, ymin), (xmax, ymax), color=color, thickness=line_thickness)
-  cv2.putText(im, f"{gender} | {age_actual}",(xmin, ymax), cv2.FONT_HERSHEY_PLAIN, text_scale, (0, 0, 255),
+  cv2.putText(im, f"{gender} | {age_actual} | [{age_low},{age_high}]",(xmin, ymax), cv2.FONT_HERSHEY_PLAIN, text_scale, (0, 0, 255),
                     thickness=text_thickness)
   return im
 
@@ -39,7 +39,7 @@ def run_predictions_video():
     df = pd.read_csv(csv_file)
     dem_model = demographics_model.load_model()
     # Final output csv to save 
-    final_df = pd.DataFrame( columns=["frame_id", "track_id", "x", "y", "w", "h", "age_actual", "gender"] )
+    final_df = pd.DataFrame( columns=["frame_id", "track_id", "x", "y", "w", "h", "age_min", "age_max", "age_actual", "gender"] )
 
 
     vidcap = cv2.VideoCapture(video_file)
@@ -83,9 +83,9 @@ def run_predictions_video():
 
             op = demographics_model.give_output(dem_model, cropped_img)
 
-            final_df.loc[len(final_df.index)] = [count, df_temp.iloc[i,1], xmin, ymin, xmax-xmin, ymax-ymin, op[0], op[1]]
+            final_df.loc[len(final_df.index)] = [count, df_temp.iloc[i,1], xmin, ymin, xmax-xmin, ymax-ymin, op[2], op[3], op[0], op[1]]
 
-            modified_image = custom_image_editor(modified_image, df_temp.iloc[i,1], xmin, ymin, xmax, ymax, op[0], op[1])
+            modified_image = custom_image_editor(modified_image, df_temp.iloc[i,1], xmin, ymin, xmax, ymax, op[0], op[1], op[2], op[3])
 
         vid_writer.write(modified_image)
         count += 1
@@ -97,7 +97,7 @@ def run_predictions_image():
     df = pd.read_csv(csv_file)
     dem_model = demographics_model.load_model()
     # Final output csv to save 
-    final_df = pd.DataFrame( columns=["frame_id", "track_id", "x", "y", "w", "h", "age_actual", "gender"] )
+    final_df = pd.DataFrame( columns=["frame_id", "track_id", "x", "y", "w", "h", "age_min", "age_max", "age_actual", "gender"] )
     if osp.isdir(args.path):
         files = get_image_list(args.path)
     else:
@@ -135,9 +135,9 @@ def run_predictions_image():
 
             op = demographics_model.give_output(dem_model, cropped_img)
 
-            final_df.loc[len(final_df.index)] = [count, df_temp.iloc[i,1], xmin, ymin, xmax-xmin, ymax-ymin, op[0], op[1]]
+            final_df.loc[len(final_df.index)] = [count, df_temp.iloc[i,1], xmin, ymin, xmax-xmin, ymax-ymin, op[2], op[3], op[0], op[1]]
 
-            modified_image = custom_image_editor(modified_image, df_temp.iloc[i,1], xmin, ymin, xmax, ymax, op[0], op[1])
+            modified_image = custom_image_editor(modified_image, df_temp.iloc[i,1], xmin, ymin, xmax, ymax, op[0], op[1], op[2], op[3])
         
         cv2.imwrite(f"final_output/{count}.jpg", modified_image)
         count += 1
